@@ -1,0 +1,264 @@
+@page "/wizard"
+
+<PageTitle>Gerar contrato</PageTitle>
+
+@if (!_ready)
+{
+    <div class="card card-pad">
+        <h1 class="page-title">Carregando…</h1>
+        <p class="page-subtitle">Preparando seu ambiente.</p>
+    </div>
+}
+else if (!_isAuthed)
+{
+    <div class="card card-pad">
+        <h1 class="page-title">Você precisa entrar</h1>
+        <p class="page-subtitle">Faça login para gerar contratos.</p>
+        <div class="toolbar toolbar-start">
+            <a class="btn btn-primary" href="login">Entrar</a>
+            <a class="btn btn-secondary" href="register">Criar conta</a>
+        </div>
+    </div>
+}
+else
+{
+    <div class="stepper" aria-label="Passos">
+        <div class="step @(Step == WizardStep.Template ? "step--active" : "")">
+            <span class="badge">1</span> Template
+        </div>
+        <div class="step @(Step == WizardStep.Dados ? "step--active" : "")">
+            <span class="badge">2</span> Dados
+        </div>
+        <div class="step @(Step == WizardStep.Previa ? "step--active" : "")">
+            <span class="badge">3</span> Prévia
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="card card-pad">
+            <div class="error">@_error</div>
+        </div>
+    }
+
+    @if (Step == WizardStep.Template)
+    {
+        <div class="card card-pad">
+            <h1 class="page-title">Escolha o tipo de contrato</h1>
+            <p class="page-subtitle">Selecione um template para começar.</p>
+
+            @if (_templates is null)
+            {
+                <p class="help m0">Carregando templates…</p>
+            }
+            else
+            {
+                <div class="template-grid">
+                    @foreach (var t in _templates)
+                    {
+                        <button type="button" class="template-card" @onclick="() => SelectTemplateAsync(t)">
+                            <div class="template-name">@t.Name</div>
+                            <div class="help">Código: <strong>@t.Code</strong> • v@t.Version</div>
+
+                            <div class="pill-row" aria-label="Campos">
+                                @foreach (var f in t.Fields.Take(4))
+                                {
+                                    <span class="pill">@f.Label</span>
+                                }
+                                @if (t.Fields.Count > 4)
+                                {
+                                    <span class="pill">+@(@t.Fields.Count - 4)</span>
+                                }
+                            </div>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else if (Step == WizardStep.Dados && _selectedTemplate is not null)
+    {
+        <div class="card card-pad">
+            <h1 class="page-title">@_selectedTemplate.Name</h1>
+            <p class="page-subtitle">Preencha os dados abaixo.</p>
+
+            <div class="grid">
+                @foreach (var f in _selectedTemplate.Fields)
+                {
+                    <div class="field">
+                        <label class="label" for="@f.Key">@f.Label @if (f.Required) { <span class="help">(obrigatório)</span> }</label>
+                        <input id="@f.Key"
+                               class="input"
+                               placeholder="@f.Placeholder"
+                               maxlength="@f.MaxLength"
+                               inputmode="@GetInputMode(f.Type)"
+                               type="@GetInputType(f.Type)"
+                               @bind="_fieldValues[f.Key]" />
+                    </div>
+                }
+            </div>
+
+            <div class="toolbar">
+                <button type="button" class="btn btn-secondary" @onclick="BackToTemplates">Voltar</button>
+                <button type="button" class="btn btn-primary" @onclick="GeneratePreviewAsync">Gerar prévia</button>
+            </div>
+        </div>
+    }
+    else if (Step == WizardStep.Previa)
+    {
+        <div class="card card-pad">
+            <h1 class="page-title">Prévia do contrato</h1>
+            <p class="page-subtitle">Confira o texto gerado (MVP: apenas texto; PDF vem depois).</p>
+
+            <div class="pre">@_preview</div>
+
+            <div class="toolbar">
+                <button type="button" class="btn btn-secondary" @onclick="BackToForm">Editar dados</button>
+                <button type="button" class="btn btn-primary" @onclick="StartOver">Gerar outro</button>
+            </div>
+        </div>
+    }
+}
+
+@code
+{
+    [Inject] private ClickContratoApiClient Api { get; set; } = default!;
+    [Inject] private AuthStore Auth { get; set; } = default!;
+
+    private bool _ready;
+    private bool _isAuthed;
+    private string? _error;
+
+    private List<ContractTemplateSummaryDto>? _templates;
+    private ContractTemplateSummaryDto? _selectedTemplate;
+    private Guid? _draftId;
+    private string _preview = string.Empty;
+
+    private readonly Dictionary<string, string> _fieldValues = new(StringComparer.OrdinalIgnoreCase);
+
+    private WizardStep Step { get; set; } = WizardStep.Template;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Auth.InitializeAsync();
+        _isAuthed = Auth.IsAuthenticated;
+        _ready = true;
+
+        if (_isAuthed)
+        {
+            await LoadTemplatesAsync();
+        }
+    }
+
+    private async Task LoadTemplatesAsync()
+    {
+        _error = null;
+        try
+        {
+            _templates = await Api.ListTemplatesAsync();
+        }
+        catch
+        {
+            _error = "Não foi possível carregar os templates. Verifique se a API está rodando.";
+        }
+    }
+
+    private async Task SelectTemplateAsync(ContractTemplateSummaryDto template)
+    {
+        _error = null;
+        try
+        {
+            _selectedTemplate = template;
+            _fieldValues.Clear();
+            foreach (var f in template.Fields)
+                _fieldValues[f.Key] = string.Empty;
+
+            var draft = await Api.CreateDraftAsync(new CreateDraftRequest(template.Code, null));
+            _draftId = draft.Id;
+            Step = WizardStep.Dados;
+        }
+        catch
+        {
+            _error = "Falha ao criar rascunho. Tente novamente.";
+        }
+    }
+
+    private async Task GeneratePreviewAsync()
+    {
+        if (_draftId is null || _selectedTemplate is null)
+        {
+            _error = "Rascunho inválido. Recomece o fluxo.";
+            Step = WizardStep.Template;
+            return;
+        }
+
+        _error = null;
+
+        var missing = _selectedTemplate.Fields
+            .Where(f => f.Required)
+            .Where(f => string.IsNullOrWhiteSpace(_fieldValues.GetValueOrDefault(f.Key)))
+            .Select(f => f.Label)
+            .ToList();
+
+        if (missing.Count > 0)
+        {
+            _error = $"Preencha os campos obrigatórios: {string.Join(", ", missing)}.";
+            return;
+        }
+
+        try
+        {
+            await Api.UpdateDraftFieldsAsync(_draftId.Value, new UpdateDraftFieldsRequest(new Dictionary<string, string>(_fieldValues)));
+            _preview = await Api.GetDraftPreviewAsync(_draftId.Value);
+            Step = WizardStep.Previa;
+        }
+        catch
+        {
+            _error = "Falha ao gerar prévia. Verifique os dados e tente novamente.";
+        }
+    }
+
+    private void BackToTemplates()
+    {
+        Step = WizardStep.Template;
+    }
+
+    private void BackToForm()
+    {
+        Step = WizardStep.Dados;
+    }
+
+    private void StartOver()
+    {
+        _selectedTemplate = null;
+        _draftId = null;
+        _preview = string.Empty;
+        _fieldValues.Clear();
+        Step = WizardStep.Template;
+    }
+
+    private static string GetInputType(string type) => type switch
+    {
+        "Email" => "email",
+        "Date" => "date",
+        "Number" => "number",
+        _ => "text"
+    };
+
+    private static string GetInputMode(string type) => type switch
+    {
+        "Money" => "decimal",
+        "CpfCnpj" => "numeric",
+        "Number" => "numeric",
+        _ => "text"
+    };
+
+    private enum WizardStep
+    {
+        Template = 0,
+        Dados = 1,
+        Previa = 2
+    }
+}
+
+

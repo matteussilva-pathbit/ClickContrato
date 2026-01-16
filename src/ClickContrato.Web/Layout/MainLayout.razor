@@ -1,0 +1,47 @@
+﻿@inherits LayoutComponentBase
+@inject AuthStore Auth
+@inject NavigationManager Nav
+
+<div class="app-shell">
+    <header class="app-header">
+        <div class="container app-header__inner">
+            <a class="brand" href="">ClickContrato</a>
+
+            <nav class="app-nav" aria-label="Navegação principal">
+                <NavLink class="nav-link" href="wizard" Match="NavLinkMatch.Prefix">Gerar contrato</NavLink>
+
+                @if (Auth.IsAuthenticated)
+                {
+                    <button type="button" class="btn btn-ghost" @onclick="Logout">Sair</button>
+                }
+                else
+                {
+                    <NavLink class="nav-link" href="login" Match="NavLinkMatch.Prefix">Entrar</NavLink>
+                    <NavLink class="btn btn-primary" href="register" Match="NavLinkMatch.Prefix">Criar conta</NavLink>
+                }
+            </nav>
+        </div>
+    </header>
+
+    <main class="app-main">
+        <div class="container">
+            @Body
+        </div>
+    </main>
+
+    <footer class="app-footer">
+        <div class="container app-footer__inner">
+            <span class="muted">ClickContrato • MVP</span>
+            <span class="muted">Feito para tablets e mobile</span>
+        </div>
+    </footer>
+</div>
+
+@code
+{
+    private async Task Logout()
+    {
+        await Auth.LogoutAsync();
+        Nav.NavigateTo("/login");
+    }
+}

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ClickContrato.Api/ClickContrato.Api.csproj" />
+    <Project Path="src/ClickContrato.Application/ClickContrato.Application.csproj" />
+    <Project Path="src/ClickContrato.Domain/ClickContrato.Domain.csproj" />
+    <Project Path="src/ClickContrato.Infrastructure/ClickContrato.Infrastructure.csproj" />
+    <Project Path="src/ClickContrato.Web/ClickContrato.Web.csproj" />
+  </Folder>
+</Solution>

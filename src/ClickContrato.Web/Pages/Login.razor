@@ -1,0 +1,79 @@
+@page "/login"
+
+<PageTitle>Entrar</PageTitle>
+
+<div class="card card-pad">
+    <h1 class="page-title">Entrar</h1>
+    <p class="page-subtitle">Acesse para gerar contratos e salvar seus rascunhos.</p>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="error">@_error</div>
+    }
+
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+        <DataAnnotationsValidator />
+
+        <div class="grid">
+            <div class="field">
+                <label class="label" for="email">Email</label>
+                <InputText id="email" class="input" @bind-Value="_model.Email" />
+                <ValidationMessage For="() => _model.Email" />
+            </div>
+
+            <div class="field">
+                <label class="label" for="password">Senha</label>
+                <InputText id="password" class="input" type="password" @bind-Value="_model.Password" />
+                <ValidationMessage For="() => _model.Password" />
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <a class="btn btn-secondary" href="register">Criar conta</a>
+            <button type="submit" class="btn btn-primary">Entrar</button>
+        </div>
+    </EditForm>
+</div>
+
+@code
+{
+    [Inject] private ClickContratoApiClient Api { get; set; } = default!;
+    [Inject] private AuthStore Auth { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private string? _error;
+    private LoginVm _model = new();
+
+    protected override void OnInitialized()
+    {
+        if (Auth.IsAuthenticated)
+            Nav.NavigateTo("/wizard");
+    }
+
+    private async Task SubmitAsync()
+    {
+        _error = null;
+        try
+        {
+            var auth = await Api.LoginAsync(new LoginRequest(_model.Email, _model.Password));
+            await Auth.SetSessionAsync(auth);
+            Nav.NavigateTo("/wizard");
+        }
+        catch
+        {
+            _error = "Não foi possível entrar. Verifique email e senha.";
+        }
+    }
+
+    private sealed class LoginVm
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Password { get; set; } = string.Empty;
+    }
+}
+
+

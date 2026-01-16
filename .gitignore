@@ -1,0 +1,24 @@
+# Build artifacts
+**/bin/
+**/obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider / JetBrains
+.idea/
+
+# VS Code
+.vscode/
+
+# OS / tooling
+.DS_Store
+Thumbs.db
+
+# Node (se futuramente adicionar)
+**/node_modules/
+
+

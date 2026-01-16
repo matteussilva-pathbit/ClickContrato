@@ -1,0 +1,91 @@
+@page "/register"
+
+<PageTitle>Criar conta</PageTitle>
+
+<div class="card card-pad">
+    <h1 class="page-title">Criar conta</h1>
+    <p class="page-subtitle">Crie seu usuário para começar a gerar contratos.</p>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <div class="error">@_error</div>
+    }
+
+    <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+        <DataAnnotationsValidator />
+
+        <div class="grid">
+            <div class="field">
+                <label class="label" for="name">Nome</label>
+                <InputText id="name" class="input" @bind-Value="_model.Name" />
+                <ValidationMessage For="() => _model.Name" />
+            </div>
+
+            <div class="field">
+                <label class="label" for="email">Email</label>
+                <InputText id="email" class="input" @bind-Value="_model.Email" />
+                <ValidationMessage For="() => _model.Email" />
+            </div>
+
+            <div class="field">
+                <label class="label" for="password">Senha</label>
+                <InputText id="password" class="input" type="password" @bind-Value="_model.Password" />
+                <div class="help">Mínimo de 8 caracteres.</div>
+                <ValidationMessage For="() => _model.Password" />
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <a class="btn btn-secondary" href="login">Já tenho conta</a>
+            <button type="submit" class="btn btn-primary">Criar conta</button>
+        </div>
+    </EditForm>
+</div>
+
+@code
+{
+    [Inject] private ClickContratoApiClient Api { get; set; } = default!;
+    [Inject] private AuthStore Auth { get; set; } = default!;
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
+    private string? _error;
+    private RegisterVm _model = new();
+
+    protected override void OnInitialized()
+    {
+        if (Auth.IsAuthenticated)
+            Nav.NavigateTo("/wizard");
+    }
+
+    private async Task SubmitAsync()
+    {
+        _error = null;
+        try
+        {
+            var auth = await Api.RegisterAsync(new RegisterRequest(_model.Email, _model.Name, _model.Password));
+            await Auth.SetSessionAsync(auth);
+            Nav.NavigateTo("/wizard");
+        }
+        catch
+        {
+            _error = "Não foi possível criar sua conta. Tente um email diferente e uma senha válida.";
+        }
+    }
+
+    private sealed class RegisterVm
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.MinLength(2)]
+        public string Name { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.EmailAddress]
+        public string Email { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.Required]
+        [System.ComponentModel.DataAnnotations.MinLength(8)]
+        public string Password { get; set; } = string.Empty;
+    }
+}
+
+
