@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ClickContrato
 
 Gerador de contratos simples (MVP) em **C# / .NET 10**, com **DDD/Clean Architecture**, **API** e autenticação **JWT**.
@@ -66,3 +67,6 @@ Resposta (exemplo):
 - Gestão de templates e cláusulas (Admin)
 
 
+=======
+# ClickContrato
+>>>>>>> 650add669e061aaf950b80bcb6d42b0a105eef9a
